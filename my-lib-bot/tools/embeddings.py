@@ -1,15 +1,8 @@
-from dataclasses import dataclass
 from typing import Any
 
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer
-
-@dataclass
-class EmbeddingsResponse:
-    model_name: str
-    dimensions: int
-    embeddings: list[float]
-    tokens: int
+from models.embeddings import EmbeddingsResponse
 
 
 class HuggingFaceEmbeddings:
