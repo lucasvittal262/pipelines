@@ -26,7 +26,7 @@ class GoogleDriveClient:
         secret_version_id: str = "latest",
         local_server_host: str = "localhost",
         local_server_port: int = 8080,
-        local_server_trailing_slash: bool = True,
+        local_server_trailing_slash: bool = False,
     ) -> None:
         self.credentials_path = Path(credentials_path) if credentials_path else None
         self.token_path = (
@@ -132,6 +132,10 @@ class GoogleDriveClient:
             credentials.refresh(Request())
         else:
             flow = self._load_oauth_flow()
+            redirect_uri = f"http://{self.local_server_host}:{self.local_server_port}"
+            if self.local_server_trailing_slash:
+                redirect_uri += "/"
+            print(f"OAuth redirect URI: {redirect_uri}")
             credentials = flow.run_local_server(
                 host=self.local_server_host,
                 port=self.local_server_port,
@@ -252,7 +256,7 @@ class GoogleDriveClient:
                     ),
                     "redirect_uris": client_config.get(
                         "redirect_uris",
-                        ["http://localhost:8080/"],
+                        ["http://localhost:8080"],
                     ),
                 }
             }
@@ -274,7 +278,7 @@ def get_drive_service(
     secret_version_id: str = "latest",
     local_server_host: str = "localhost",
     local_server_port: int = 8080,
-    local_server_trailing_slash: bool = True,
+    local_server_trailing_slash: bool = False,
 ) -> Any:
     """Backward-compatible helper for code that only needs the Drive service."""
     return GoogleDriveClient(
