@@ -4,7 +4,6 @@ from tools.embeddings import HuggingFaceEmbeddings
 def get_documents_indexes(
     documents: list[str],
     embedding_model: str,
-    batch_size: int = 32,
     parallel_processes: int = 1,
     run_inference_on: str = "cpu",
 ) -> list[tuple[int, str]]:
@@ -13,7 +12,6 @@ def get_documents_indexes(
     with HuggingFaceEmbeddings(
         model=embedding_model,
         run_inference_on=run_inference_on,
-        batch_size=batch_size,
         parallel_processes=parallel_processes,
     ) as embeddings_model:
         responses = embeddings_model.embed_documents(documents, show_progress_bar=True)
@@ -24,7 +22,7 @@ def get_documents_indexes(
 if __name__ == "__main__":
     import pprint
     
-    EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-8B"
+    EMBEDDING_MODEL = "microsoft/harrier-oss-v1-0.6b"
     sentences = [
         "The weather is lovely today.",
         "It's so sunny outside!",
@@ -80,8 +78,7 @@ if __name__ == "__main__":
     embedding_responses = get_documents_indexes(
         sentences,
         embedding_model=EMBEDDING_MODEL,
-        batch_size=16,
-        parallel_processes=2,
+        parallel_processes=4,
         run_inference_on="cpu",
     )
-    pprint.pprint(embedding_responses[0])
+    pprint.pprint(embedding_responses)
