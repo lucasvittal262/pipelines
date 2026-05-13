@@ -10,22 +10,21 @@ class HuggingFaceEmbeddings:
         self,
         model: str,
         run_inference_on: str = "cpu",
-        batch_size: int = 32,
         parallel_processes: int = 1,
         chunk_size: int | None = None,
+        tokenizer_model: str = "GPT2",
     ):
     
-        if batch_size < 1:
-            raise ValueError("batch_size must be at least 1.")
+        
         if parallel_processes < 1:
             raise ValueError("parallel_processes must be at least 1.")
 
         self.device = run_inference_on
-        self.batch_size = batch_size
         self.parallel_processes = parallel_processes
         self.chunk_size = chunk_size
         self.model_name = model
         self.model = SentenceTransformer(model, device=run_inference_on)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_model)
         self._pool: dict[str, Any] | None = None
 
     def __enter__(self) -> "HuggingFaceEmbeddings":
@@ -53,38 +52,46 @@ class HuggingFaceEmbeddings:
 
         return self._pool
 
-    def __count_tokens(self, text: str, tokenizer_model: str = "GPT2") -> int:
-        
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_model)
-        text = "Hugging Face makes token counting easy!"
-        tokens = tokenizer.encode(text)
-        token_count = len(tokens)
-        return token_count
+    def __count_tokens(self, documents: list[str]) -> list[int]:
+        encoded_documents = self.tokenizer(
+            documents,
+            add_special_tokens=True,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+        )
+        return [len(tokens) for tokens in encoded_documents["input_ids"]]
 
     def embed_documents(
         self,
         documents: list[str],
-        batch_size: int | None = None,
+        batch_size: int = 10,
         show_progress_bar: bool = False,
     ) -> list[EmbeddingsResponse]:
         
         if not documents:
             return []
 
+        effective_batch_size = batch_size or self.batch_size
+        pool = self._get_pool()
+        effective_chunk_size = self.chunk_size
+        if pool is not None and effective_chunk_size is None:
+            effective_chunk_size = effective_batch_size
+        
         embeddings = self.model.encode(
             documents,
-            batch_size=batch_size or self.batch_size,
-            pool=self._get_pool(),
-            chunk_size=self.chunk_size,
+            batch_size=effective_batch_size,
+            pool=pool,
+            chunk_size=effective_chunk_size,
             show_progress_bar=show_progress_bar,
         )
+        token_counts = self.__count_tokens(documents)
         responses = [
             EmbeddingsResponse(
                 model_name=self.model_name,
                 dimensions=len(embedding),
-                embeddings=embedding.tolist(),
-                tokens=self.__count_tokens(doc),
+                embeddings=embedding,
+                tokens=token_count,
             )
-            for embedding, doc in zip(embeddings, documents)
+            for embedding, token_count in zip(embeddings, token_counts)
         ]    
         return responses
